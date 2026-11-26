@@ -10,10 +10,12 @@ import { getApiKey } from "../auth/index.js";
 import { DEFAULT_ENDPOINT, fetchAvailableModelsCatalog, parseApiKey } from "../client/index.js";
 import { ANTIGRAVITY_API, type AntigravityModelConfig } from "../types/types.js";
 import { antigravityEnv, isRecord } from "../utils/util.js";
+import { describeEnterpriseRouting } from "../client/enterprise.js";
 import { buildAntigravityCatalog, resolvedCatalog, type AntigravityCatalog } from "./grouping.js";
 import {
   ANTIGRAVITY_MODELS,
   ANTIGRAVITY_ROUTING,
+  PROVIDER_ID,
   applyAntigravityCatalog,
   getCurrentAntigravityCatalog,
   registerDiscoveredModelEnums,
@@ -87,11 +89,15 @@ export async function refreshAntigravityModels(
 
   // A different account/project or pre-upgrade cache must not suppress a fresh
   // discovery. Keep hydration above so offline startup still has usable models.
+  const routing = describeEnterpriseRouting();
   const credentialKey = createHash("sha256")
     .update(
       JSON.stringify([
         context.credential?.type === "oauth" ? context.credential.refresh : apiKey,
         parseApiKey(apiKey).projectId,
+        // Switching consumer <-> enterprise must invalidate the cached catalog.
+        // Consumer keys stay unchanged so existing caches remain valid.
+        ...(routing === "consumer" ? [] : [routing]),
       ]),
     )
     .digest("hex");
@@ -170,7 +176,7 @@ function toStoredModels(models: AntigravityModelConfig[]): Model<Api>[] {
   return models.map((model) => ({
     ...model,
     api: ANTIGRAVITY_API,
-    provider: "antigravity",
+    provider: PROVIDER_ID,
     baseUrl: DEFAULT_ENDPOINT,
   }));
 }

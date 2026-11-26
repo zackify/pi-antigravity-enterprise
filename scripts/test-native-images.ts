@@ -7,7 +7,7 @@ import registerSearch from "../src/features/google-search.js";
 import register from "../src/index.js";
 import { ANTIGRAVITY_IMAGE_API, ANTIGRAVITY_IMAGE_MODELS, generateAntigravityImages } from "../src/image/native.js";
 
-const model = { ...ANTIGRAVITY_IMAGE_MODELS[0]!, provider: "antigravity" };
+const model = { ...ANTIGRAVITY_IMAGE_MODELS[0]!, provider: "antigravity-work" };
 const context = { input: [{ type: "text" as const, text: "a square" }] };
 assert.equal((await generateAntigravityImages(model, context)).stopReason, "error");
 assert.match((await generateAntigravityImages(model, context, { apiKey: "bad" })).errorMessage!, /Invalid Antigravity credentials/);

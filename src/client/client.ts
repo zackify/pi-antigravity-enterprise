@@ -14,6 +14,7 @@ import type { AntigravityApiKey, AvailableModelsRaw, DynamicModelInfo } from "..
 import { antigravityEnv, asString, isRecord } from "../utils/util.js";
 import { antigravityFetch } from "../utils/http.js";
 import { registerDiscoveredModelEnums, registerModelEnum } from "../models/models.js";
+import { fetchEnterpriseModelsCatalog, resolveEnterpriseTarget } from "./enterprise.js";
 
 export const DEFAULT_ENDPOINT = "https://daily-cloudcode-pa.googleapis.com";
 export const ENDPOINT_FALLBACKS = [DEFAULT_ENDPOINT, "https://cloudcode-pa.googleapis.com"];
@@ -340,6 +341,27 @@ async function fetchAvailableRuntimeModelUncached(
   requestedRuntimeModel: string,
   effort?: string,
 ): Promise<DynamicModelInfo | undefined> {
+  // resolve runtime models against the enterprise license catalog.
+  const enterpriseTarget = resolveEnterpriseTarget();
+  if (enterpriseTarget) {
+    try {
+      const result = await fetchEnterpriseModelsCatalog(
+        token,
+        enterpriseTarget,
+        antigravityHeaders(token),
+        AbortSignal.timeout(DISCOVERY_TIMEOUT_MS),
+      );
+      setLastEndpoint(result.endpoint);
+      setLastStatus(result.status);
+      const labels = [...new Set(collectModelLabels(result.data))].slice(0, 16);
+      if (labels.length) setLastAvailableModels(labels.join(","));
+      return findDynamicModel(result.data, requestedRuntimeModel, effort);
+    } catch (error) {
+      setLastError(safeError(error));
+      return undefined;
+    }
+  }
+
   const body = JSON.stringify({ project: projectId });
   const endpoints = endpointCandidates();
   let lastLabels = "";
@@ -571,6 +593,17 @@ export async function fetchAvailableModelsCatalog(
   projectId: string,
   signal?: AbortSignal,
 ): Promise<{ endpoint: string; status: number; data: AvailableModelsRaw }> {
+  // enterprise licenses list models via fetchConfig, not the consumer catalog.
+  const enterpriseTarget = resolveEnterpriseTarget();
+  if (enterpriseTarget) {
+    const result = await fetchEnterpriseModelsCatalog(
+      token,
+      enterpriseTarget,
+      antigravityHeaders(token),
+      catalogSignal(signal),
+    );
+    return mergeAvailableModelsResults([result]);
+  }
   const results = await Promise.all(
     endpointCandidates().map((endpoint) =>
       fetchAvailableModelsFromEndpoint(endpoint, token, projectId, signal),

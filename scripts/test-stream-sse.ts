@@ -44,7 +44,7 @@ function makeOutput(): AssistantMessage {
     role: "assistant",
     content: [],
     api: "antigravity" as unknown as AssistantMessage["api"],
-    provider: "antigravity",
+    provider: "antigravity-work",
     model: "gemini-3.7-flash",
     usage: {
       input: 0,

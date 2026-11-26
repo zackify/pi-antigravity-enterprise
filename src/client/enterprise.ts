@@ -59,6 +59,26 @@ function readCliSettings(): Record<string, unknown> | undefined {
   }
 }
 
+/**
+ * Enterprise config from Pi settings, so it syncs with ~/.pi:
+ *   { "antigravity": { "enterprise": { "enabled": true, "project": "my-proj",
+ *                                      "location": "us", "userTier": "gcp-ge-plus-tier" } } }
+ * Precedence: ANTIGRAVITY_* env > Pi settings > agy CLI settings.
+ */
+function readPiEnterpriseSettings(): Record<string, unknown> | undefined {
+  const agentDir = process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent");
+  const path = join(agentDir, "settings.json");
+  if (!existsSync(path)) return undefined;
+  try {
+    const parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
+    const section = isRecord(parsed) ? parsed.antigravity : undefined;
+    const enterprise = isRecord(section) ? section.enterprise : undefined;
+    return isRecord(enterprise) ? enterprise : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function licenseRecord(
   settings: Record<string, unknown> | undefined,
 ): Record<string, unknown> | undefined {
@@ -73,9 +93,13 @@ function licenseRecord(
 export function resolveEnterpriseTarget(): EnterpriseTarget | undefined {
   const settings = readCliSettings();
   const license = licenseRecord(settings);
-  const forced = truthy(antigravityEnv("ENTERPRISE"));
+  const pi = readPiEnterpriseSettings();
+  const envForced = antigravityEnv("ENTERPRISE");
+  const forced =
+    envForced !== undefined ? truthy(envForced) : pi?.enabled === true || pi?.enabled === "1";
   const locationRaw = (
     antigravityEnv("LOCATION") ||
+    stringField(pi, "location") ||
     stringField(settings, "location") ||
     stringField(license, "location") ||
     (forced ? process.env.GOOGLE_CLOUD_LOCATION || "global" : "")
@@ -93,6 +117,7 @@ export function resolveEnterpriseTarget(): EnterpriseTarget | undefined {
   const location = (locationRaw || "global") as EnterpriseLocation;
   const projectId =
     antigravityEnv("ENTERPRISE_PROJECT")?.trim() ||
+    stringField(pi, "project") ||
     stringField(settings, "project") ||
     stringField(settings, "projectId") ||
     stringField(settings, "licenseProject") ||
@@ -100,6 +125,7 @@ export function resolveEnterpriseTarget(): EnterpriseTarget | undefined {
     stringField(license, "projectId");
   const userTier =
     antigravityEnv("USER_TIER")?.trim() ||
+    stringField(pi, "userTier") ||
     stringField(settings, "userTier") ||
     stringField(settings, "entitlementTier") ||
     stringField(license, "userTier") ||
@@ -130,6 +156,77 @@ export function describeEnterpriseRouting(): string {
   }
 }
 
+/**
+ * LOCAL PATCH: enterprise model catalog.
+ * The consumer fetchAvailableModels catalog does not reflect the enterprise
+ * license (e.g. Gemini 4 Neon / Argon). agy reads the license's experiences from
+ * GET /v1beta/projects/{p}/locations/{l}:fetchConfig. Convert them into the
+ * consumer `models` dict shape so the existing grouping logic works unchanged.
+ */
+export async function fetchEnterpriseModelsCatalog(
+  token: string,
+  target: EnterpriseTarget,
+  headers: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<{ endpoint: string; status: number; data: Record<string, unknown> }> {
+  const project = encodeURIComponent(target.projectId);
+  const query = new URLSearchParams({ "entitlement.userTier": target.userTier });
+  const url = `${target.host}/v1beta/projects/${project}/locations/${target.location}:fetchConfig?${query}`;
+  const { "Content-Type": _omit, ...getHeaders } = headers;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: { ...getHeaders, Authorization: `Bearer ${token}` },
+    signal,
+  });
+  const text = await res.text();
+  if (!res.ok)
+    throw new Error(`Enterprise fetchConfig failed (${res.status}): ${text.slice(0, 300)}`);
+  const parsed = JSON.parse(text) as unknown;
+  const experiences =
+    isRecord(parsed) && Array.isArray(parsed.availableExperiences)
+      ? parsed.availableExperiences
+      : [];
+  const models: Record<string, Record<string, unknown>> = {};
+  for (const exp of experiences) {
+    if (!isRecord(exp) || typeof exp.name !== "string") continue;
+    const model = isRecord(exp.model) ? exp.model : {};
+    const surface = isRecord(exp.surfaceConfig) ? exp.surfaceConfig : {};
+    const features = Array.isArray(model.supportedFeatures) ? model.supportedFeatures : [];
+    const provider = typeof model.modelProvider === "string" ? model.modelProvider : "GOOGLE";
+    models[exp.name] = {
+      displayName: model.displayName,
+      maxTokens: model.inputTokenLimit,
+      maxOutputTokens: model.outputTokenLimit,
+      supportsThinking: features.includes("THINKING"),
+      supportsImages: features.includes("IMAGE_INPUT"),
+      recommended: true,
+      model: surface.clientModelEnumName,
+      apiProvider:
+        provider === "GOOGLE" ? "API_PROVIDER_GOOGLE_GEMINI" : `API_PROVIDER_${provider}`,
+      modelProvider: `MODEL_PROVIDER_${provider}`,
+    };
+  }
+  if (Object.keys(models).length === 0) {
+    throw new Error("Enterprise fetchConfig returned no available experiences");
+  }
+  const agy = isRecord(parsed) && isRecord(parsed.agySurfaceConfig) ? parsed.agySurfaceConfig : {};
+  const agent = isRecord(agy.agentExperiences) ? agy.agentExperiences : {};
+  const agentIds = Array.isArray(agent.experienceNames)
+    ? agent.experienceNames.filter((id): id is string => typeof id === "string")
+    : [];
+  return {
+    endpoint: target.host,
+    status: res.status,
+    data: {
+      models,
+      defaultAgentModelId: agent.defaultExperience,
+      agentModelSorts: agentIds.length
+        ? [{ displayName: "Recommended", groups: [{ modelIds: agentIds }] }]
+        : undefined,
+    },
+  };
+}
+
 /** Allowlisted enterprise generate body. Drops the consumer envelope. */
 export function toEnterpriseGenerateBody(
   payload: AntigravityGenerateRequest,
@@ -145,6 +242,13 @@ export function toEnterpriseGenerateBody(
   if (request.tools) body.tools = request.tools;
   if (request.toolConfig) body.toolConfig = request.toolConfig;
   if (request.generationConfig) body.generationConfig = request.generationConfig;
-  if (request.labels) body.labels = request.labels;
+  // enterprise label values must match [\p{Ll}\p{Lo}\p{N}_-]{0,63};
+  // consumer labels like model_enum=MODEL_PLACEHOLDER_M318 are rejected.
+  if (request.labels) {
+    const labels = Object.fromEntries(
+      Object.entries(request.labels).filter(([, v]) => /^[\p{Ll}\p{Lo}\p{N}_-]{0,63}$/u.test(v)),
+    );
+    if (Object.keys(labels).length) body.labels = labels;
+  }
   return body;
 }

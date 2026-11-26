@@ -10,6 +10,7 @@ import {
   type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { PROVIDER_ID } from "../models/models.js";
 import {
   DEFAULT_IMAGE_MODEL,
   generateAntigravityImage,
@@ -57,7 +58,7 @@ export default function (pi: ExtensionAPI): void {
       ),
     }),
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
-      const apiKey = await ctx.modelRegistry.getApiKeyForProvider("antigravity");
+      const apiKey = await ctx.modelRegistry.getApiKeyForProvider(PROVIDER_ID);
       if (!apiKey) {
         throw new Error("No Antigravity credentials. Run /login antigravity first.");
       }

@@ -40,7 +40,7 @@ delete process.env.NOAGY_RUNTIME_MODEL;
 const model = {
   ...ANTIGRAVITY_MODELS.find((m) => m.id === "gemini-3.8-flash")!,
   api: "antigravity",
-  provider: "antigravity",
+  provider: "antigravity-work",
 } as Model<Api>;
 const options = {
   apiKey: JSON.stringify({ token: "test", projectId: "test-project" }),

@@ -113,7 +113,7 @@ const savedFetch = globalThis.fetch;
 const model = {
   ...ANTIGRAVITY_MODELS.find((entry) => entry.id === "gemini-3.8-flash"),
   api: "antigravity",
-  provider: "antigravity",
+  provider: "antigravity-work",
 } as Model<Api>;
 const options = {
   apiKey: JSON.stringify({ token: "test-token", projectId: "test-project" }),

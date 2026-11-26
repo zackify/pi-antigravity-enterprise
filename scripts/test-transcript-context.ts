@@ -45,7 +45,7 @@ const assert = {
 
 const testModel = {
   api: "antigravity-api",
-  provider: "antigravity",
+  provider: "antigravity-work",
   baseUrl: "https://cloudcode-pa.googleapis.com",
   id: "gemini-3.8-flash",
   name: "Gemini 3.8 Flash",
@@ -224,7 +224,7 @@ const history = {
     },
     {
       role: "assistant",
-      provider: "antigravity",
+      provider: "antigravity-work",
       model: "gemini-3.8-flash",
       api: "antigravity-api" as AssistantMessage["api"],
       stopReason: "toolUse",

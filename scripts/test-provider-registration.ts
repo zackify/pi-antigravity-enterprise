@@ -18,7 +18,7 @@ const pi = new Proxy(
 );
 register(pi as Parameters<typeof register>[0]);
 
-assert.equal(registered?.id, "antigravity");
+assert.equal(registered?.id, "antigravity-work");
 assert.equal(
   registered?.config.oauth?.isSubscription,
   true,

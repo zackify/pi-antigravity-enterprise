@@ -2,8 +2,8 @@ import type { AntigravityModelConfig, AntigravityRouting, ThinkingWire } from ".
 import { ThinkingEffort } from "../types/enums.js";
 import type { AntigravityCatalog } from "./grouping.js";
 
-export const PROVIDER_ID = "antigravity";
-export const PROVIDER_NAME = "Antigravity";
+export const PROVIDER_ID = "antigravity-work";
+export const PROVIDER_NAME = "Antigravity Work";
 
 /**
  * Public selectable model IDs → backend request model IDs by thinking effort.

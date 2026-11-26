@@ -7,7 +7,7 @@ const savedFetch = globalThis.fetch;
 const savedPrewarm = process.env.ANTIGRAVITY_NO_PREWARM;
 process.env.ANTIGRAVITY_NO_PREWARM = "1";
 const bodies: any[] = [];
-const model = { ...ANTIGRAVITY_MODELS[0], api: "antigravity", provider: "antigravity" } as Model<Api>;
+const model = { ...ANTIGRAVITY_MODELS[0], api: "antigravity", provider: "antigravity-work" } as Model<Api>;
 const options = { apiKey: JSON.stringify({ token: "test", projectId: "test-project" }), sessionId: "recovery-test" };
 try {
   let calls = 0;

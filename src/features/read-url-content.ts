@@ -5,6 +5,7 @@
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { PROVIDER_ID } from "../models/models.js";
 import { isExtraToolEnabled, redactSecrets } from "../utils/index.js";
 import {
   executeAntigravityWebFetch,
@@ -41,7 +42,7 @@ export default function (pi: Pick<ExtensionAPI, "registerTool">): void {
       const maxChars = resolveMaxChars();
       try {
         const url = validateFetchTarget(params.url);
-        const apiKey = await ctx.modelRegistry.getApiKeyForProvider("antigravity");
+        const apiKey = await ctx.modelRegistry.getApiKeyForProvider(PROVIDER_ID);
         if (!apiKey) throw new Error("No Antigravity credentials. Run /login antigravity first.");
         if (signal?.aborted) throw new Error("Web fetch aborted");
         onUpdate?.({

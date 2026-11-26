@@ -19,7 +19,7 @@ const model = {
   id: "gemini-3.8-flash",
   name: "Gemini 3.8 Flash",
   api: "antigravity",
-  provider: "antigravity",
+  provider: "antigravity-work",
   baseUrl: "",
   reasoning: true,
   input: ["text"],
