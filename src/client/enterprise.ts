@@ -60,23 +60,30 @@ function readCliSettings(): Record<string, unknown> | undefined {
 }
 
 /**
- * Enterprise config from Pi settings, so it syncs with ~/.pi:
- *   { "antigravity": { "enterprise": { "enabled": true, "project": "my-proj",
- *                                      "location": "us", "userTier": "gcp-ge-plus-tier" } } }
- * Precedence: ANTIGRAVITY_* env > Pi settings > agy CLI settings.
+ * Enterprise config, read from the first file that has it:
+ *   1. <agentDir>/antigravity-work.json   { "enterprise": { ... } }   (synced with ~/.pi)
+ *   2. <agentDir>/settings.json           { "antigravity": { "enterprise": { ... } } }
+ * where enterprise = { "enabled": true, "project": "my-proj", "location": "us",
+ *                      "userTier": "gcp-ge-plus-tier" }.
+ * Precedence: ANTIGRAVITY_* env > these files > agy CLI settings.
  */
-function readPiEnterpriseSettings(): Record<string, unknown> | undefined {
-  const agentDir = process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent");
-  const path = join(agentDir, "settings.json");
+function readJson(path: string): Record<string, unknown> | undefined {
   if (!existsSync(path)) return undefined;
   try {
     const parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
-    const section = isRecord(parsed) ? parsed.antigravity : undefined;
-    const enterprise = isRecord(section) ? section.enterprise : undefined;
-    return isRecord(enterprise) ? enterprise : undefined;
+    return isRecord(parsed) ? parsed : undefined;
   } catch {
     return undefined;
   }
+}
+
+function readPiEnterpriseSettings(): Record<string, unknown> | undefined {
+  const agentDir = process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent");
+  const own = readJson(join(agentDir, "antigravity-work.json"))?.enterprise;
+  if (isRecord(own)) return own;
+  const section = readJson(join(agentDir, "settings.json"))?.antigravity;
+  const enterprise = isRecord(section) ? section.enterprise : undefined;
+  return isRecord(enterprise) ? enterprise : undefined;
 }
 
 function licenseRecord(

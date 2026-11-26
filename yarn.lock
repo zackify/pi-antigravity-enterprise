@@ -1837,9 +1837,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pi-antigravity@workspace:.":
+"pi-antigravity-enterprise@workspace:.":
   version: 0.0.0-use.local
-  resolution: "pi-antigravity@workspace:."
+  resolution: "pi-antigravity-enterprise@workspace:."
   dependencies:
     "@earendil-works/pi-ai": "npm:^1.5.0"
     "@earendil-works/pi-coding-agent": "npm:^1.5.0"

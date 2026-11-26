@@ -1,12 +1,12 @@
 {
-  "name": "pi-antigravity",
+  "name": "pi-antigravity-enterprise",
   "version": "0.15.0",
   "description": "Personal Antigravity / Cloud Code Assist provider for Pi Coding Agent",
   "author": "Rahul Arya",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Rahularya01/pi-antigravity.git"
+    "url": "git+https://github.com/zackify/pi-antigravity-enterprise.git"
   },
   "homepage": "https://github.com/Rahularya01/pi-antigravity#readme",
   "bugs": {
